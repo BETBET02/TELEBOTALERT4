@@ -1,90 +1,53 @@
 import os
 import requests
-from telegram.ext import Application, CommandHandler, ContextTypes
-from telegram import Update
+import telebot  # tai "from telebot.async_telebot import AsyncTeleBot" jos async
 
-from dotenv import load_dotenv
-load_dotenv()
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+bot = telebot.TeleBot(TOKEN)
 
-SPORTRADAR_API_KEY = os.getenv("SPORTRADAR_API_KEY")
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+SPORTDATA_KEY = os.getenv("SPORTDATA_API_KEY")
+ODDS_KEY = os.getenv("ODDS_API_KEY")
 
-# Kaikki avaimet pienillä kirjaimilla!
-TOURNAMENT_IDS = {
-    ("seriea", "brazil"): "sr:tournament:26",        # Brasil Serie A
-    ("veikkausliiga", "finland"): "sr:tournament:67",
-    ("premierleague", "england"): "sr:tournament:17",
-    ("laliga", "spain"): "sr:tournament:8",
-    # Lisää tarvittaessa!
-}
-
-def get_odds_arrow(opening_odds, current_odds):
-    if current_odds > opening_odds:
-        return "🔼"
-    elif current_odds < opening_odds:
-        return "🔽"
-    else:
-        return "➡️"
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Tervetuloa TeleBotAlert4-urheilubottiin!\nKokeile komentoa: /ottelut SerieA Brazil 27.07.2025"
-    )
-
-async def ottelut(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 3:
-        await update.message.reply_text("Käytä muotoa: /ottelut <sarja> <maa> <pp.kk.vvvv>\nEsim: /ottelut SerieA Brazil 27.07.2025")
+@bot.message_handler(commands=['ottelut'])
+def handle_ottelut(message):
+    # Esimerkki: viesti = "EPL 2025-08-15"
+    args = message.text.split()[1:]  # ['EPL', '2025-08-15']
+    if len(args) != 2:
+        bot.reply_to(message, "Käyttö: /ottelut <liiga> <YYYY‑MM‑DD>")
         return
-
-    # Muutetaan syöte pieniksi, jotta mapping toimii aina.
-    sarja = context.args[0].strip().lower()
-    maa = context.args[1].strip().lower()
-    paiva = context.args[2]
-
-    key = (sarja, maa)
-    tournament_id = TOURNAMENT_IDS.get(key)
-    if not tournament_id:
-        await update.message.reply_text(f"Tuntematon sarja/maa ({sarja}/{maa}), lisää mapping TOURNAMENT_IDS")
-        return
-
-    try:
-        day, month, year = paiva.split('.')
-        date_iso = f"{year}-{month}-{day}"
-    except Exception:
-        date_iso = paiva  # fallback jos käyttäjä syötti valmiiksi oikein
-
-    url = f"https://api.sportradar.com/soccer/trial/v4/en/tournaments/{tournament_id}/schedule.json?api_key={SPORTRADAR_API_KEY}"
-    print("Kutsu URL:", url)
-    resp = requests.get(url)
-    print("Status code:", resp.status_code)
-    print("Vastaus:", resp.text[:300])
-
-    if resp.status_code != 200:
-        await update.message.reply_text(f"Virhe haettaessa otteluita!\nStatus code: {resp.status_code}\nVastaus: {resp.text}")
-        return
-
-    data = resp.json()
-    matches = []
-    for match in data.get("sport_events", []):
-        if match["start_time"].startswith(date_iso):
-            home = match["competitors"][0]["name"]
-            away = match["competitors"][1]["name"]
-            # DEMO: Kertoimet kovakoodattu, lisää oikea API-kutsu tähän
-            opening_odds = 2.00
-            current_odds = 2.10
-            arrow = get_odds_arrow(opening_odds, current_odds)
-            matches.append(f"{home} vs {away}\nKerroin: {current_odds:.2f} {arrow} (Avaus: {opening_odds:.2f})")
-
+    
+    league, date = args
+    matches = get_matches(league, date)
     if not matches:
-        await update.message.reply_text("Ei otteluita löytynyt tälle päivälle.")
-    else:
-        await update.message.reply_text("\n\n".join(matches))
+        bot.reply_to(message, "Ei otteluita annettuna päivänä/liigassa.")
+        return
 
-def main():
-    application = Application.builder().token(TELEGRAM_TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("ottelut", ottelut))
-    application.run_polling()
+    texts = []
+    for m in matches:
+        home = m['home_team']; away = m['away_team']
+        launch_odds, closing_odds = get_odds(m['match_id'])
+        texts.append(f"{home}-{away} {launch_odds} ({closing_odds})")
+    bot.reply_to(message, "\n".join(texts))
 
-if __name__ == "__main__":
-    main()
+def get_matches(league, date):
+    url = f"https://api.sportdataapi.com/v1/soccer/matches"
+    params = {"api_token": SPORTDATA_KEY, "date": date, "league": league}
+    r = requests.get(url, params=params)
+    data = r.json().get('data', [])
+    return [{"match_id": ev['id'], "home_team": ev['localteam_name'], "away_team": ev['visitorteam_name']} for ev in data]
+
+def get_odds(match_id):
+    url = "https://api.the-odds-api.com/v4/sports/soccer_epl/odds"  # muokkaa lajiin
+    params = {"apiKey": ODDS_KEY, "regions": "uk", "markets": "h2h"}
+    r = requests.get(url, params=params)
+    best = r.json()
+    # etsi oikea ottelu esim. event_timestamp tai joukkueet
+    for ev in best:
+        if ev.get('id') == str(match_id):
+            prices = ev['bookmakers'][0]['markets'][0]['outcomes']
+            closing = ev.get('started') and prices  # esimerkki
+            launch = ev.get('commence_time') and prices
+            launch_str = "-".join([f"{o['price']:.2f}" for o in launch])
+            close_str = "-".join([f"{o['price']:.2f}" for o in prices])
+            return launch_str, close_str
+    return "–", "–"
