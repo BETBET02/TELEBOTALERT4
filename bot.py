@@ -1,9 +1,9 @@
 import os
 import requests
 from dotenv import load_dotenv
+load_dotenv()
 import telebot
 
-load_dotenv()
 
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN"))
 API_KEY = os.getenv("API_FOOTBALL_KEY")
