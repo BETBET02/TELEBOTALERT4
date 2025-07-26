@@ -78,25 +78,25 @@ def get_odds(home, away):
 
 def get_league_id_and_season(name):
     leagues = {
-        "EPL": (39, 7293),
-        "LaLiga": (140, 7351),
-        "SerieB": (71, 7079),
-        "SerieA": (135, 7286),
-        "Argentina": (128, 7000),
-        "Ligue1": (61, 7335),
-        "Eliteserien": (103, 7042),
-        "Allsvenskan": (113, 7041),
-        "OBOS": (104, 7043),
-        "Superettan": (114, 7040),
-        "Superliga": (119, 7294),
-        "1LigTurkey": (204, 7395),
-        "Veikkausliiga": (244, 7044),
-        "Eredivisie": (88, 7304),
-        "ChampionsLeague": (2, 7318),
-        "EuropaLeague": (3, 7320),
-        "ConferenceLeague": (848, 7319)
+        "EPL": (39, 2025),
+        "LaLiga": (140, 2025),
+        "SerieB": (71, 2025),
+        "SerieA": (135, 2025),
+        "Argentina": (128, 2025),
+        "Ligue1": (61, 2025),
+        "Eliteserien": (103, 2025),
+        "Allsvenskan": (113, 2025),
+        "OBOS": (104, 2025),
+        "Superettan": (114, 2025),
+        "Superliga": (119, 2025),
+        "1LigTurkey": (204, 2025),
+        "Veikkausliiga": (244, 2025),
+        "Eredivisie": (88, 2025),
+        "ChampionsLeague": (2, 2025),
+        "EuropaLeague": (3, 2025),
+        "ConferenceLeague": (848, 2025)
     }
     return leagues.get(name)
-
+    
 if __name__ == "__main__":
     bot.infinity_polling()
