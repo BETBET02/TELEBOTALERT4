@@ -97,3 +97,6 @@ def get_league_id_and_season(name):
         "ConferenceLeague": (848, 7319)
     }
     return leagues.get(name)
+
+if __name__ == "__main__":
+    bot.infinity_polling()
