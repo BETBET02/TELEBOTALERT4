@@ -3,8 +3,20 @@ import requests
 from telegram.ext import Application, CommandHandler, ContextTypes
 from telegram import Update
 
+from dotenv import load_dotenv
+load_dotenv()
+
 SPORTRADAR_API_KEY = os.getenv("SPORTRADAR_API_KEY")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+
+# Mapping sarja + maa -> tournament_id
+TOURNAMENT_IDS = {
+    ("SerieA", "Brazil"): "sr:tournament:26",        # Brasil Serie A
+    ("Veikkausliiga", "Finland"): "sr:tournament:67",
+    ("PremierLeague", "England"): "sr:tournament:17",
+    ("LaLiga", "Spain"): "sr:tournament:8",
+    # Lisää tarvittaessa!
+}
 
 def get_odds_arrow(opening_odds, current_odds):
     if current_odds > opening_odds:
@@ -28,8 +40,12 @@ async def ottelut(update: Update, context: ContextTypes.DEFAULT_TYPE):
     maa = context.args[1]
     paiva = context.args[2]
 
-    # DEMO: Hardkodattu tournament_id. Lisää mapping oikeisiin sarjoihin!
-    tournament_id = "brazil-serie-a-id"
+    # Muodostetaan mapping-avain
+    key = (sarja, maa)
+    tournament_id = TOURNAMENT_IDS.get(key)
+    if not tournament_id:
+        await update.message.reply_text(f"Tuntematon sarja/maa ({sarja}/{maa}), lisää mapping TOURNAMENT_IDS")
+        return
 
     # Päivämäärän muunto vvvv-kk-pp (esim. 27.07.2025 -> 2025-07-27)
     try:
@@ -39,9 +55,13 @@ async def ottelut(update: Update, context: ContextTypes.DEFAULT_TYPE):
         date_iso = paiva  # fallback jos käyttäjä syötti valmiiksi oikein
 
     url = f"https://api.sportradar.com/soccer/trial/v4/en/tournaments/{tournament_id}/schedule.json?api_key={SPORTRADAR_API_KEY}"
+    print("Kutsu URL:", url)
     resp = requests.get(url)
+    print("Status code:", resp.status_code)
+    print("Vastaus:", resp.text[:300])  # Ei tulosteta koko dataa jos se on suuri
+
     if resp.status_code != 200:
-        await update.message.reply_text("Virhe haettaessa otteluita.")
+        await update.message.reply_text(f"Virhe haettaessa otteluita!\nStatus code: {resp.status_code}\nVastaus: {resp.text}")
         return
 
     data = resp.json()
