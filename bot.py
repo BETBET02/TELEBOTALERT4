@@ -9,12 +9,12 @@ load_dotenv()
 SPORTRADAR_API_KEY = os.getenv("SPORTRADAR_API_KEY")
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-# Mapping sarja + maa -> tournament_id
+# Kaikki avaimet pienillä kirjaimilla!
 TOURNAMENT_IDS = {
-    ("SerieA", "Brazil"): "sr:tournament:26",        # Brasil Serie A
-    ("Veikkausliiga", "Finland"): "sr:tournament:67",
-    ("PremierLeague", "England"): "sr:tournament:17",
-    ("LaLiga", "Spain"): "sr:tournament:8",
+    ("seriea", "brazil"): "sr:tournament:26",        # Brasil Serie A
+    ("veikkausliiga", "finland"): "sr:tournament:67",
+    ("premierleague", "england"): "sr:tournament:17",
+    ("laliga", "spain"): "sr:tournament:8",
     # Lisää tarvittaessa!
 }
 
@@ -36,18 +36,17 @@ async def ottelut(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Käytä muotoa: /ottelut <sarja> <maa> <pp.kk.vvvv>\nEsim: /ottelut SerieA Brazil 27.07.2025")
         return
 
-    sarja = context.args[0]
-    maa = context.args[1]
+    # Muutetaan syöte pieniksi, jotta mapping toimii aina.
+    sarja = context.args[0].strip().lower()
+    maa = context.args[1].strip().lower()
     paiva = context.args[2]
 
-    # Muodostetaan mapping-avain
     key = (sarja, maa)
     tournament_id = TOURNAMENT_IDS.get(key)
     if not tournament_id:
         await update.message.reply_text(f"Tuntematon sarja/maa ({sarja}/{maa}), lisää mapping TOURNAMENT_IDS")
         return
 
-    # Päivämäärän muunto vvvv-kk-pp (esim. 27.07.2025 -> 2025-07-27)
     try:
         day, month, year = paiva.split('.')
         date_iso = f"{year}-{month}-{day}"
@@ -58,7 +57,7 @@ async def ottelut(update: Update, context: ContextTypes.DEFAULT_TYPE):
     print("Kutsu URL:", url)
     resp = requests.get(url)
     print("Status code:", resp.status_code)
-    print("Vastaus:", resp.text[:300])  # Ei tulosteta koko dataa jos se on suuri
+    print("Vastaus:", resp.text[:300])
 
     if resp.status_code != 200:
         await update.message.reply_text(f"Virhe haettaessa otteluita!\nStatus code: {resp.status_code}\nVastaus: {resp.text}")
