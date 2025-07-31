@@ -1,10 +1,15 @@
 import asyncio
 import asyncpg
+import os
 from datetime import datetime, timezone
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import tweepy
-from config import TELEGRAM_BOT_TOKEN, TWITTER_BEARER_TOKEN, DATABASE_URL
+
+# --- Lue tiedot ympäristömuuttujista ---
+TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
+TWITTER_BEARER_TOKEN = os.environ["TWITTER_BEARER_TOKEN"]
+DATABASE_URL = os.environ["DATABASE_URL"]
 
 # --- Cachein kesto sekunteina ---
 CACHE_TTL_SECONDS = 3600  # 1 tunti
