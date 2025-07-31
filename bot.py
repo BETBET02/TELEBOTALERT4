@@ -5,6 +5,9 @@ from datetime import datetime, timezone
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 import tweepy
+import nest_asyncio
+
+nest_asyncio.apply()
 
 # --- Lue tiedot ympäristömuuttujista ---
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
@@ -38,8 +41,8 @@ USER_IDS = {
         "NHL": {
             "loukkaantumiset": [
                 "1200045509",  # EP Transfers
-                "16188237",    # Squawka (myös futis, mutta tässä mukana)
-                "1305433894694223872", # MoneyPuckdotcom (analyysi)
+                "16188237",    # Squawka
+                "1305433894694223872", # MoneyPuckdotcom
                 "17464681",    # NHL
                 "18838464",    # NHL.com
                 "34796001",    # NHLPR
@@ -72,7 +75,7 @@ USER_IDS = {
         },
         "SHL": {
             "loukkaantumiset": [
-                "SwissHockeyNews",  # Twitter handle, muutetaan ID:ksi haussa erikseen
+                "SwissHockeyNews",
             ],
             "kokoonpanot": [
                 "SwissHockeyNews",
@@ -250,7 +253,7 @@ USER_IDS = {
             ],
             "analyysi": [
                 "atptour",
-                "MoneyPuckdotcom",  # Käytetään analyysiin myös jääkiekkokanavaa, jos halutaan
+                "MoneyPuckdotcom",
             ],
             "uutiset": [
                 "atptour",
@@ -280,7 +283,6 @@ USER_IDS = {
 
 # --- Apufunktio usernamen -> user_id selvitykseen (kerralla monta) ---
 async def resolve_usernames(usernames):
-    # Palauttaa dict username -> user_id
     user_ids = {}
     chunks = [usernames[i:i+100] for i in range(0, len(usernames), 100)]
     for chunk in chunks:
@@ -387,12 +389,10 @@ async def main():
     await init_db_pool()
 
     application = ApplicationBuilder().token(TELEGRAM_BOT_TOKEN).build()
-
     application.add_handler(CommandHandler("komento", handle_command))
 
     print("Bot käynnistyy...")
     await application.run_polling()
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    asyncio.run(main())
