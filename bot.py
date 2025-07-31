@@ -33,7 +33,6 @@ async def init_db_pool():
         """)
 
 # --- Täydellinen Twitter-kanavien user ID ja nimet sisältävä rakenne ---
-
 USER_IDS = {
     "kiekko": {
         "NHL": {
@@ -279,9 +278,6 @@ USER_IDS = {
     }
 }
 
-# Huom! Tässä kanavissa on sekaisin user ID:t ja Twitter-nimet (screen name)
-# Pitäisi muuttaa kaikki ID:ksi yhdellä funktiolla, joka hakee käyttäjätunnuksen ID:n Twitteristä
-
 # --- Apufunktio usernamen -> user_id selvitykseen (kerralla monta) ---
 async def resolve_usernames(usernames):
     # Palauttaa dict username -> user_id
@@ -298,7 +294,6 @@ async def resolve_usernames(usernames):
     return user_ids
 
 # --- Cache DB - funktiot ---
-
 async def get_cached_tweets(key):
     async with db_pool.acquire() as conn:
         row = await conn.fetchrow("SELECT fetched_at, data FROM tweet_cache WHERE key=$1", key)
@@ -327,20 +322,16 @@ async def fetch_tweets_from_user(user_id: str, max_results=5):
     return []
 
 # --- Pääfunktio tiedon hakemiseen useilta kanavilta yhdellä pyynnöllä ---
-
 async def fetch_tweets_for_command(sport, league, command):
-    # Avataan kanavien ID:t (muutetaan nimistä ID:ksi, jos nimi)
     channels = USER_IDS.get(sport, {}).get(league, {}).get(command, [])
     if not channels:
         return f"Ei löytynyt kanavia laji/ liiga/ komento-yhdistelmällä: {sport}/{league}/{command}"
 
-    # Selvitä nimistä ID:t (käyttäjätilin ID:t ovat numeroita, muuten hae)
     usernames_to_resolve = [ch for ch in channels if not ch.isdigit()]
     resolved_ids = {}
     if usernames_to_resolve:
         resolved_ids = await resolve_usernames(usernames_to_resolve)
 
-    # Korvataan käyttäjänimet id:llä
     user_ids = []
     for ch in channels:
         if ch.isdigit():
@@ -349,25 +340,19 @@ async def fetch_tweets_for_command(sport, league, command):
             user_ids.append(str(resolved_ids.get(ch, "")))
     user_ids = [uid for uid in user_ids if uid]
 
-    # Tarkista cache
     cache_key = f"{sport}_{league}_{command}"
     cached = await get_cached_tweets(cache_key)
     if cached:
         return cached
 
-    # Hae twiitit kaikilta kanavilta ja yhdistä tulokset
     all_tweets = []
     for uid in user_ids:
         tweets = await fetch_tweets_from_user(uid)
         all_tweets.extend(tweets)
 
-    # Järjestä twiitit aikajärjestykseen (uusin ensin)
     all_tweets.sort(key=lambda x: x["created_at"], reverse=True)
-
-    # Rajataan max 10 twiittiin
     all_tweets = all_tweets[:10]
 
-    # Muodosta vastaus (voit muokata tekstiksi mieleisesi)
     response = f"🔎 {sport.upper()} / {league.upper()} / {command}\n\n"
     for t in all_tweets:
         text = t["text"].replace("\n", " ")
@@ -375,12 +360,10 @@ async def fetch_tweets_for_command(sport, league, command):
         tweet_url = f"https://twitter.com/i/web/status/{t['id']}"
         response += f"- [{created}] {text}\n{tweet_url}\n\n"
 
-    # Cachetus
     await set_cached_tweets(cache_key, response)
     return response
 
 # --- Telegram-komentojen käsittelijät ---
-
 async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if len(context.args) < 3:
         await update.message.reply_text(
@@ -400,7 +383,6 @@ async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(response)
 
 # --- Käynnistys ---
-
 async def main():
     await init_db_pool()
 
@@ -412,4 +394,5 @@ async def main():
     await application.run_polling()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
